@@ -1,0 +1,43 @@
+# ---------- Base ----------
+FROM node:14.15.4-alpine AS base
+
+WORKDIR /app
+
+# ---------- Builder ----------
+FROM base AS builder
+
+COPY .babelrc package.*json ./
+
+# Install the production dependencies
+RUN npm i --only=production
+
+# Copy the production dependencies to a new directory
+RUN cp -R node_modules node_modules_production
+
+# Install all dependencies, both production and development
+RUN npm install
+
+# Copy the source files
+COPY ./src ./src
+
+# Copy data folder
+COPY ./data ./data
+
+# Build the app
+RUN npm run build
+
+# ---------- Release ----------
+FROM base AS release
+
+# Copy the production dependencies
+COPY --from=builder /app/node_modules_production ./node_modules
+
+# Copy the compiled app
+COPY --from=builder /app/dist ./dist
+
+# Copy data folder
+COPY ./data ./data
+
+USER node
+
+CMD node ./dist/index.js
